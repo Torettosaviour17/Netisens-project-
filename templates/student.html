@@ -21,7 +21,7 @@
     </label>
     <label>Title <input name="title" maxlength="120" required></label>
     <label>File <input type="file" name="file" accept=".pdf,.docx,.zip" aria-describedby="file-help" required></label>
-    <small id="file-help">One PDF, DOCX, or ZIP file, up to 10 MB.</small>
+    <small id="file-help">One PDF, DOCX, or ZIP file, up to {{ file_limit_mb }} MB.</small>
     <button>Submit work</button>
   </form>
 </section>

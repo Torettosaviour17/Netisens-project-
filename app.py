@@ -1,3 +1,4 @@
+from io import BytesIO
 import os
 import secrets
 import sqlite3
@@ -5,19 +6,27 @@ from pathlib import Path
 from uuid import uuid4
 
 import click
+import psycopg
+from database import connect
 from flask import (
     Flask, abort, flash, g, redirect, render_template, request,
-    send_from_directory, session, url_for,
+    send_file, send_from_directory, session, url_for,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-app = Flask(__name__)
+DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+ON_VERCEL = os.environ.get("VERCEL") == "1"
+FILE_LIMIT_MB = 4 if DATABASE_URL or ON_VERCEL else 10
+FILE_LIMIT = FILE_LIMIT_MB * 1024 * 1024
+
+app = Flask(__name__, static_folder="public/static", static_url_path="/static")
 app.config.update(
     SECRET_KEY=os.environ.get("NETISENS_SECRET_KEY") or secrets.token_hex(32),
     TEACHER_ID=os.environ.get("NETISENS_TEACHER_ID", ""),
     DATA_DIR=Path(app.instance_path),
-    MAX_CONTENT_LENGTH=11 * 1024 * 1024,
+    MAX_CONTENT_LENGTH=FILE_LIMIT + 64 * 1024,
+    SESSION_COOKIE_SECURE=ON_VERCEL,
     SESSION_COOKIE_SAMESITE="Lax",
 )
 CATEGORIES = ("Assignment", "Classwork", "Project")
@@ -26,9 +35,7 @@ EXTENSIONS = {".pdf", ".docx", ".zip"}
 
 def db():
     if "db" not in g:
-        g.db = sqlite3.connect(app.config["DATA_DIR"] / "portal.sqlite3")
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
+        g.db = connect(DATABASE_URL, app.config["DATA_DIR"])
     return g.db
 
 
@@ -41,6 +48,10 @@ def close_database(error):
 
 @app.cli.command("init-db")
 def init_db():
+    if DATABASE_URL:
+        db()
+        click.echo("Database ready.")
+        return
     (app.config["DATA_DIR"] / "uploads").mkdir(parents=True, exist_ok=True)
     db().executescript(Path(__file__).with_name("schema.sql").read_text(encoding="utf-8"))
     click.echo("Database ready.")
@@ -60,13 +71,15 @@ def add_user(role, email, name, password):
                 "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
                 (name.strip(), email.strip(), generate_password_hash(password), role),
             )
-    except sqlite3.IntegrityError:
+    except (sqlite3.IntegrityError, psycopg.errors.UniqueViolation):
         raise click.ClickException("That email already has an account.") from None
     click.echo(f"Created {role} account for {email}.")
 
 
 @app.before_request
 def load_user_and_check_form():
+    if ON_VERCEL and (not DATABASE_URL or not os.environ.get("NETISENS_SECRET_KEY")):
+        return "Set DATABASE_URL and NETISENS_SECRET_KEY in Vercel, then redeploy.", 503
     if request.method == "POST":
         token = session.get("csrf")
         if not token or not secrets.compare_digest(token.encode(), request.form.get("csrf", "").encode()):
@@ -79,7 +92,7 @@ def load_user_and_check_form():
 def form_token():
     if "csrf" not in session:
         session["csrf"] = secrets.token_hex(24)
-    return {"csrf": session["csrf"]}
+    return {"csrf": session["csrf"], "file_limit_mb": FILE_LIMIT_MB}
 
 
 def require_role(role):
@@ -94,7 +107,7 @@ def require_role(role):
 def login():
     if request.method == "POST":
         email = request.form.get("email", "").strip()
-        user = db().execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        user = db().execute("SELECT * FROM users WHERE lower(email) = lower(?)", (email,)).fetchone()
         if user and check_password_hash(user["password_hash"], request.form.get("password", "")):
             session.clear()
             session["user_id"] = user["id"]
@@ -134,7 +147,7 @@ def register():
                         "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
                         (name, email, generate_password_hash(password), role),
                     )
-            except sqlite3.IntegrityError:
+            except (sqlite3.IntegrityError, psycopg.errors.UniqueViolation):
                 flash("An account with that email already exists. Sign in with it.")
             else:
                 flash("Your account was created. Sign in to continue.")
@@ -170,8 +183,18 @@ def student():
         elif extension not in EXTENSIONS or len(request.files.getlist("file")) != 1:
             flash("Choose one PDF, DOCX, or ZIP file.")
         else:
-            data = upload.read(10 * 1024 * 1024 + 1)
-            if 0 < len(data) <= 10 * 1024 * 1024:
+            data = upload.read(FILE_LIMIT + 1)
+            if 0 < len(data) <= FILE_LIMIT:
+                if DATABASE_URL:
+                    with db() as connection:
+                        connection.execute(
+                            """INSERT INTO submissions
+                               (student_id, course_id, category, title, original_filename, file_data)
+                               VALUES (?, ?, ?, ?, ?, ?)""",
+                            (g.user["id"], course_id, category, title, filename, data),
+                        )
+                    flash("Your work was submitted.")
+                    return redirect(url_for("student"))
                 stored = uuid4().hex + extension
                 path = app.config["DATA_DIR"] / "uploads" / stored
                 try:
@@ -188,9 +211,9 @@ def student():
                     raise
                 flash("Your work was submitted.")
                 return redirect(url_for("student"))
-            flash("Your file must be between 1 byte and 10 MB.")
+            flash(f"Your file must be between 1 byte and {FILE_LIMIT_MB} MB.")
     history = db().execute(
-        """SELECT submissions.*, courses.name AS course_name
+        """SELECT submissions.id, title, category, original_filename, submitted_at, courses.name AS course_name
            FROM submissions JOIN courses ON courses.id = course_id
            WHERE student_id = ? ORDER BY submissions.id DESC""", (g.user["id"],)
     ).fetchall()
@@ -211,16 +234,16 @@ def teacher():
                 with db() as connection:
                     connection.execute("INSERT INTO courses (name) VALUES (?)", (name,))
                 flash("Course added.")
-            except sqlite3.IntegrityError:
+            except (sqlite3.IntegrityError, psycopg.errors.UniqueViolation):
                 flash("That course already exists.")
         return redirect(url_for("teacher"))
     selected = request.args.get("course_id", type=int)
     submissions = db().execute(
-        """SELECT submissions.*, users.name AS student_name, courses.name AS course_name
+        """SELECT submissions.id, title, category, original_filename, submitted_at, users.name AS student_name, courses.name AS course_name
            FROM submissions
            JOIN users ON users.id = student_id
            JOIN courses ON courses.id = course_id
-           WHERE (? IS NULL OR course_id = ?) ORDER BY submissions.id DESC""",
+           WHERE (CAST(? AS INTEGER) IS NULL OR course_id = ?) ORDER BY submissions.id DESC""",
         (selected, selected),
     ).fetchall()
     return render_template("teacher.html", courses=courses(), selected=selected, submissions=submissions)
@@ -234,11 +257,16 @@ def download(submission_id):
     submission = db().execute("SELECT * FROM submissions WHERE id = ?", (submission_id,)).fetchone()
     if submission is None:
         abort(404)
-    response = send_from_directory(
-        app.config["DATA_DIR"] / "uploads", submission["stored_filename"],
+    options = dict(
         as_attachment=True, download_name=submission["original_filename"],
         mimetype="application/octet-stream",
     )
+    if DATABASE_URL:
+        response = send_file(BytesIO(submission["file_data"]), **options)
+    else:
+        response = send_from_directory(
+            app.config["DATA_DIR"] / "uploads", submission["stored_filename"], **options
+        )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.cache_control.no_store = True
     return response
@@ -246,4 +274,4 @@ def download(submission_id):
 
 @app.errorhandler(413)
 def upload_too_large(error):
-    return render_template("error.html", message="Choose a file no larger than 10 MB."), 413
+    return render_template("error.html", message=f"Choose a file no larger than {FILE_LIMIT_MB} MB."), 413

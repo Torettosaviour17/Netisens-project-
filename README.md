@@ -29,4 +29,11 @@ Open <http://127.0.0.1:5000> and choose **Create an account**. Students enter `s
 - **Python with Flask** connects the forms to server-side logic in `app.py`. Flask looks up the signed-in student, validates the form, saves the file, and records the submission.
 - **SQLite** keeps the three tables in one file and needs no separate database server. In `schema.sql`, each submission links a student ID to a course ID. The teacher's page joins those records to show the student's and course's names.
 
-This setup is intended for a local certificate demo.
+## Deploy on Vercel
+
+1. Import this repository in Vercel. Keep Root Directory at `./` and use the Flask framework.
+2. In Vercel Marketplace, install Neon, create a Postgres database, and connect it to this project. In the project's environment variables, verify that Neon supplied `DATABASE_URL` or `POSTGRES_URL` for Production.
+3. Add `NETISENS_TEACHER_ID` with the value `teach`. Add `NETISENS_SECRET_KEY` with a long random value. A password generator can create one.
+4. Redeploy and open the production link. The app creates its tables and starter courses on the first database connection. Use the Demo steps above with a PDF under 4 MB.
+
+The hosted portal keeps account records and uploaded files in Postgres. Local SQLite accounts and uploads stay on the local machine.
