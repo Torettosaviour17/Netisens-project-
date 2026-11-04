@@ -15,6 +15,7 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.config.update(
     SECRET_KEY=os.environ.get("NETISENS_SECRET_KEY") or secrets.token_hex(32),
+    TEACHER_ID=os.environ.get("NETISENS_TEACHER_ID", ""),
     DATA_DIR=Path(app.instance_path),
     MAX_CONTENT_LENGTH=11 * 1024 * 1024,
     SESSION_COOKIE_SAMESITE="Lax",
@@ -102,6 +103,43 @@ def login():
     if g.user:
         return redirect(url_for(g.user["role"]))
     return render_template("login.html")
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if g.user:
+        return redirect(url_for(g.user["role"]))
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        account_id = request.form.get("account_id", "").strip()
+        teacher_id = app.config["TEACHER_ID"]
+        if account_id == "student":
+            role = "student"
+        elif teacher_id and secrets.compare_digest(account_id.encode(), teacher_id.encode()):
+            role = "teacher"
+        else:
+            flash("Enter a valid account ID.")
+            return render_template("register.html"), 400
+
+        if not 1 <= len(name) <= 80 or not 3 <= len(email) <= 254 or "@" not in email:
+            flash("Enter your name and a valid email address.")
+        elif not 8 <= len(password) <= 128:
+            flash("Use a password between 8 and 128 characters.")
+        else:
+            try:
+                with db() as connection:
+                    connection.execute(
+                        "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
+                        (name, email, generate_password_hash(password), role),
+                    )
+            except sqlite3.IntegrityError:
+                flash("An account with that email already exists. Sign in with it.")
+            else:
+                flash("Your account was created. Sign in to continue.")
+                return redirect(url_for("login"))
+    return render_template("register.html")
 
 
 @app.post("/logout")

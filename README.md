@@ -12,12 +12,10 @@ source .venv/Scripts/activate  # Windows Git Bash
 # On macOS or Linux, use: source .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m flask --app app init-db
-python -m flask --app app add-user student student@example.test "Demo Student"
-python -m flask --app app add-user teacher teacher@example.test "Demo Teacher"
 python -m flask --app app run
 ```
 
-Choose a password of at least eight characters at each prompt. Open <http://127.0.0.1:5000>. Database records and files persist in the local `instance/` directory. Run initialization again safely if needed. The default session signing key is temporary, so restarting the app signs users out unless you set `NETISENS_SECRET_KEY`.
+Open <http://127.0.0.1:5000> and choose **Create an account**. Students enter `student` in the Account ID field. To enable teacher registration, set `NETISENS_TEACHER_ID` privately in the server environment before starting Flask. Share that value only with teachers. Both roles sign in with their email and password after registration. Database records and files persist in the local `instance/` directory. Run initialization again safely if needed. The default session signing key is temporary, so restarting the app signs users out unless you set `NETISENS_SECRET_KEY`.
 
 ## Demo
 
