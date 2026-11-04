@@ -1,0 +1,16 @@
+<ul class="submission-grid" role="list">
+  {% for item in records %}
+    <li class="submission-card">
+      <span class="submission-type">{{ item.category }}</span>
+      <h3>{{ item.title }}</h3>
+      <p>{{ item.course_name }}</p>
+      {% if show_student %}
+        <p>Submitted by <strong>{{ item.student_name }}</strong></p>
+      {% endif %}
+      <p class="submission-date">Submitted {{ item.submitted_at }} UTC</p>
+      {% if show_student %}
+        <a class="download-link" href="{{ url_for('download', submission_id=item.id) }}">Download {{ item.original_filename }}</a>
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>

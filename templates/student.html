@@ -2,7 +2,6 @@
 {% block title %}Student dashboard{% endblock %}
 {% block content %}
 <h1>Student dashboard</h1>
-<p>Signed in as {{ g.user.name }}.</p>
 <section class="card">
   <h2>Submit your work</h2>
   <form method="post" enctype="multipart/form-data" class="fields">
@@ -28,16 +27,9 @@
 <section class="card">
   <h2>My submissions</h2>
   {% if history %}
-  <div class="table-wrap">
-    <table aria-label="My submissions">
-      <thead><tr><th>Title</th><th>Course</th><th>Type</th><th>Submitted (UTC)</th></tr></thead>
-      <tbody>
-        {% for item in history %}
-          <tr><td>{{ item.title }}</td><td>{{ item.course_name }}</td><td>{{ item.category }}</td><td>{{ item.submitted_at }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  {% with records=history, show_student=false %}
+    {% include "submission_cards.html" %}
+  {% endwith %}
   {% else %}<p>You haven’t submitted any work yet.</p>{% endif %}
 </section>
 {% endblock %}

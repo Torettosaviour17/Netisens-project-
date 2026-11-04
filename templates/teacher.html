@@ -2,7 +2,6 @@
 {% block title %}Teacher dashboard{% endblock %}
 {% block content %}
 <h1>Teacher dashboard</h1>
-<p>Signed in as {{ g.user.name }}.</p>
 <section class="card">
   <h2>Add a course</h2>
   <form method="post" class="inline">
@@ -25,20 +24,9 @@
     <button class="secondary">Apply filter</button>
   </form>
   {% if submissions %}
-  <div class="table-wrap">
-    <table aria-label="Student submissions">
-      <thead><tr><th>Student</th><th>Course</th><th>Title</th><th>Type</th><th>Submitted (UTC)</th><th>File</th></tr></thead>
-      <tbody>
-        {% for item in submissions %}
-          <tr>
-            <td>{{ item.student_name }}</td><td>{{ item.course_name }}</td><td>{{ item.title }}</td>
-            <td>{{ item.category }}</td><td>{{ item.submitted_at }}</td>
-            <td><a href="{{ url_for('download', submission_id=item.id) }}">Download {{ item.original_filename }}</a></td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  {% with records=submissions, show_student=true %}
+    {% include "submission_cards.html" %}
+  {% endwith %}
   {% else %}<p>No submissions for this selection.</p>{% endif %}
 </section>
 {% endblock %}

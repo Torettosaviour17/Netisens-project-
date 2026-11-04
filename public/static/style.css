@@ -19,11 +19,54 @@ button { justify-self: start; background: #154d84; color: white; border: 1px sol
 .secondary { background: white; color: #154d84; }
 a { color: #154d84; overflow-wrap: anywhere; }
 .notice { background: #e4effc; padding: .75rem 1rem; border-radius: .35rem; }
-.table-wrap { overflow-x: auto; margin-top: 1rem; }
-table { border-collapse: collapse; width: 100%; }
-th, td { text-align: left; padding: .65rem; border-bottom: 1px solid #d7e0e8; }
-th { background: #edf2f7; }
 
 .visibility-field { display: grid; gap: .3rem; }
 .visibility-row { display: flex; gap: .5rem; }
 .visibility-row input { min-width: 0; }
+
+.submission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: .8rem;
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+.submission-card {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #d7e0e8;
+  border-radius: .65rem;
+  background: #f7fafe;
+  overflow-wrap: anywhere;
+}
+.submission-card h3 { margin: .6rem 0 .25rem; line-height: 1.3; }
+.submission-card p { margin: .25rem 0; }
+.submission-type {
+  display: inline-block;
+  border-radius: 1rem;
+  padding: .15rem .65rem;
+  background: #e4effc;
+  color: #154d84;
+  font-size: .85rem;
+  font-weight: 650;
+}
+.submission-date, .account-footer p { color: #465a70; font-size: .9rem; }
+.download-link { display: inline-block; margin-top: .35rem; padding: .55rem 0; font-weight: 650; }
+.account-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  border-top: 1px solid #d7e0e8;
+  padding: 1rem 0 1.5rem;
+}
+.account-footer p { margin: 0; overflow-wrap: anywhere; }
+.account-footer button { font-size: .9rem; }
+@media (max-width: 36rem) {
+  .card { padding: 1rem; }
+  .inline { display: grid; align-items: stretch; }
+  .inline button, .fields > button { width: 100%; }
+  input[type="file"] { min-width: 0; }
+}
