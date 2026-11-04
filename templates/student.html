@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Student dashboard{% endblock %}
+{% block content %}
+<h1>Student dashboard</h1>
+<p>Signed in as {{ g.user.name }}.</p>
+<section class="card">
+  <h2>Submit your work</h2>
+  <form method="post" enctype="multipart/form-data" class="fields">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Course
+      <select name="course_id" required>
+        <option value="">Choose a course</option>
+        {% for course in courses %}<option value="{{ course.id }}">{{ course.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Submission type
+      <select name="category" required>
+        <option value="">Choose a type</option>
+        {% for category in categories %}<option>{{ category }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Title <input name="title" maxlength="120" required></label>
+    <label>File <input type="file" name="file" accept=".pdf,.docx,.zip" aria-describedby="file-help" required></label>
+    <small id="file-help">One PDF, DOCX, or ZIP file, up to 10 MB.</small>
+    <button>Submit work</button>
+  </form>
+</section>
+<section class="card">
+  <h2>My submissions</h2>
+  {% if history %}
+  <div class="table-wrap">
+    <table aria-label="My submissions">
+      <thead><tr><th>Title</th><th>Course</th><th>Type</th><th>Submitted (UTC)</th></tr></thead>
+      <tbody>
+        {% for item in history %}
+          <tr><td>{{ item.title }}</td><td>{{ item.course_name }}</td><td>{{ item.category }}</td><td>{{ item.submitted_at }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p>You haven’t submitted any work yet.</p>{% endif %}
+</section>
+{% endblock %}

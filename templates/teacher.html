@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Teacher dashboard{% endblock %}
+{% block content %}
+<h1>Teacher dashboard</h1>
+<p>Signed in as {{ g.user.name }}.</p>
+<section class="card">
+  <h2>Add a course</h2>
+  <form method="post" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Course name <input name="name" maxlength="80" required></label>
+    <button>Add course</button>
+  </form>
+</section>
+<section class="card">
+  <h2>Student submissions</h2>
+  <form method="get" class="inline">
+    <label>Course
+      <select name="course_id">
+        <option value="">All courses</option>
+        {% for course in courses %}
+          <option value="{{ course.id }}"{% if selected == course.id %} selected{% endif %}>{{ course.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button class="secondary">Apply filter</button>
+  </form>
+  {% if submissions %}
+  <div class="table-wrap">
+    <table aria-label="Student submissions">
+      <thead><tr><th>Student</th><th>Course</th><th>Title</th><th>Type</th><th>Submitted (UTC)</th><th>File</th></tr></thead>
+      <tbody>
+        {% for item in submissions %}
+          <tr>
+            <td>{{ item.student_name }}</td><td>{{ item.course_name }}</td><td>{{ item.title }}</td>
+            <td>{{ item.category }}</td><td>{{ item.submitted_at }}</td>
+            <td><a href="{{ url_for('download', submission_id=item.id) }}">Download {{ item.original_filename }}</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p>No submissions for this selection.</p>{% endif %}
+</section>
+{% endblock %}
