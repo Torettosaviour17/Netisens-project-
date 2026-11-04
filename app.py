@@ -78,8 +78,14 @@ def add_user(role, email, name, password):
 
 @app.before_request
 def load_user_and_check_form():
-    if ON_VERCEL and (not DATABASE_URL or not os.environ.get("NETISENS_SECRET_KEY")):
-        return "Set DATABASE_URL and NETISENS_SECRET_KEY in Vercel, then redeploy.", 503
+    if ON_VERCEL:
+        missing = []
+        if not DATABASE_URL:
+            missing.append("DATABASE_URL (or POSTGRES_URL)")
+        if not os.environ.get("NETISENS_SECRET_KEY"):
+            missing.append("NETISENS_SECRET_KEY")
+        if missing:
+            return f"Missing Vercel settings: {', '.join(missing)}. Set them for Production, then redeploy.", 503
     if request.method == "POST":
         token = session.get("csrf")
         if not token or not secrets.compare_digest(token.encode(), request.form.get("csrf", "").encode()):
