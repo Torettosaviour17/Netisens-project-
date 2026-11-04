@@ -23,3 +23,7 @@ a { color: #154d84; overflow-wrap: anywhere; }
 table { border-collapse: collapse; width: 100%; }
 th, td { text-align: left; padding: .65rem; border-bottom: 1px solid #d7e0e8; }
 th { background: #edf2f7; }
+
+.visibility-field { display: grid; gap: .3rem; }
+.visibility-row { display: flex; gap: .5rem; }
+.visibility-row input { min-width: 0; }
